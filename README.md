@@ -44,9 +44,20 @@ This repository reproduces every table and figure in the paper: descriptive stat
 
 ## Data
 
-`sacct.csv` contains job-level resource-consumption records extracted via SLURM's `sacct` accounting utility from the Kabré supercomputer, covering June 18, 2024 -- July 14, 2026. Only the fields needed to reproduce this analysis are retained: `ConsumedEnergyRaw`, `CPUTimeRAW`, `ReqMem`, `ReqCPUS` (Table II of the paper), plus `Partition`, `State`, and `Submit` (used only for partition/mode stratification and the temporal-stability check, Section IV-E6). No user-identifying or job-command fields are included.
+The dataset (`sacct.csv`, 33.7 MB) is archived on Zenodo rather than
+stored in this repository:
 
-> **Before pushing:** open the CSV once and confirm no other columns slipped in from the raw `sacct` export (e.g. `User`, `JobName`, `WorkDir`). The preprocessing pipeline in the `.Rmd` drops these, but the *source* file you commit should already be the cleaned version, not the raw export.
+> Benavides Castillo, D. S. (2026). SLURM Accounting Dataset for
+> "Multivariate Analysis of Resource Interdependencies in HPC Clusters:
+> A Validated R-Vine Copula Approach" [Dataset]. Zenodo.
+> https://doi.org/10.5281/zenodo.21463675
+
+Download it from Zenodo and place it in `data/sacct.csv` before running
+the analysis. It contains job-level resource-consumption records
+extracted via SLURM's `sacct` utility from the Kabré supercomputer,
+covering June 18, 2024 -- July 14, 2026. Only `ConsumedEnergyRaw`,
+`CPUTimeRAW`, `ReqMem`, `ReqCPUS`, `Partition`, `State`, and `Submit`
+are included; no user-identifying or job-command fields.
 
 ## Citation
 
