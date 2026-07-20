@@ -1,127 +1,59 @@
-# Multivariate Analysis of Resource Interdependencies in HPC Clusters using R-Vine Copulas
+# Multivariate Analysis of Resource Interdependencies in HPC Clusters: A Validated R-Vine Copula Approach
 
-This repository contains the R implementation used in the paper:
+Code and data accompanying the paper *"Multivariate Analysis of Resource Interdependencies in HPC Clusters: A Validated R-Vine Copula Approach"* (Dylan Benavides, National High Technology Center, Costa Rica).
 
-> **Multivariate Analysis of Resource Interdependencies in HPC Clusters using R-Vine Copulas**
+## Overview
 
-The project investigates dependency structures among computational resources in High-Performance Computing (HPC) systems using Regular Vine (R-Vine) copulas. The analysis is based on SLURM accounting logs collected from the Kabré supercomputer at CeNAT, Costa Rica.
+This repository reproduces every table and figure in the paper: descriptive statistics, bivariate and R-Vine copula fitting, an exhaustive structure-selection robustness check (Section IV-C), and a six-part statistical validation battery (Section IV-E): parametric model comparison, out-of-sample predictive validation, tie-breaking sensitivity, bootstrap confidence intervals, formal conditional-independence testing, and temporal-stability assessment.
 
----
-
-## Repository Structure
+## Repository structure
 
 ```
 .
-├── R Code/
-│   └── copula.Rmd          # Complete analysis pipeline
-├── Data/
-│   └── sacct.csv           # Input dataset (not included)
-├── Figures/                # Generated figures
+├── analysis/
+│   └── copula_analysis.Rmd      # Full analysis pipeline (knit to reproduce all tables/figures)
+├── data/
+│   └── sacct.csv                # Cleaned SLURM sacct export (see Data below)
+├── checkpoints/                 # Optional: intermediate .rds results from a full run (see below)
 ├── README.md
-└── LICENSE
+├── LICENSE
+└── .gitignore
 ```
 
----
+## Requirements
 
-## Features
+- R >= 4.5.0
+- Packages:
+  ```r
+  install.packages(c("VineCopula", "copula", "dplyr", "ggplot2", "scales",
+                      "patchwork", "knitr", "RANN", "sessioninfo",
+                      "fitdistrplus", "GGally"))
+  ```
+- Tested with VineCopula 2.6.1 and copula 1.1-7 on R 4.5.2 (see full session info printed at the end of the knitted output).
 
-The R workflow includes:
+## Reproducing the results
 
-- Data preprocessing and cleaning of SLURM accounting logs.
-- Memory unit conversion and normalization.
-- Exploratory statistical analysis.
-- Distribution summaries by HPC partition.
-- Kernel density estimation.
-- Marginal distribution comparison.
-- Automatic construction of R-Vine copula models.
-- Bivariate copula selection using BIC.
-- Multivariate dependence modeling.
-- Empirical density visualization.
-- Vine tree visualization.
-- Copula contour plots.
-- Automatic generation of publication-quality PDF figures. :contentReference[oaicite:2]{index=2} :contentReference[oaicite:3]{index=3}
+1. Place `sacct.csv` in the same directory as the `.Rmd` (or adjust the path in the first data-loading chunk).
+2. Knit `analysis/copula_analysis.Rmd` in RStudio, or from the command line:
+   ```bash
+   Rscript -e 'rmarkdown::render("analysis/copula_analysis.Rmd")'
+   ```
+3. The script defaults to `MODO_RAPIDO <- FALSE` (full publication-quality run: exhaustive structure comparison, 300-resample bootstrap, 300-point predictive-validation grid; ~1-3 hours depending on hardware). Set it to `TRUE` for a fast (~15-20 min) verification run with reduced bootstrap/grid resolution before committing to the full run.
+4. Progress and per-stage timing are logged to the console via timestamped checkpoints; each expensive stage also saves its result to `checkpoints/*.rds`, so an interrupted run can be resumed by loading the relevant checkpoint instead of restarting from scratch (see comments at the top of the `.Rmd`).
+5. All tables appear in the knitted output in the order they are reported in Results and Discussion (Section IV). Full session and package version information is printed at the end via `sessioninfo::session_info()`.
 
----
+## Data
 
-## HPC Partitions
+`sacct.csv` contains job-level resource-consumption records extracted via SLURM's `sacct` accounting utility from the Kabré supercomputer, covering June 18, 2024 -- July 14, 2026. Only the fields needed to reproduce this analysis are retained: `ConsumedEnergyRaw`, `CPUTimeRAW`, `ReqMem`, `ReqCPUS` (Table II of the paper), plus `Partition`, `State`, and `Submit` (used only for partition/mode stratification and the temporal-stability check, Section IV-E6). No user-identifying or job-command fields are included.
 
-The analysis considers the three compute partitions of the Kabré supercomputer:
-
-- Dribe
-- Kurá
-- Nukwa
-
-Jobs are also separated into:
-
-- Serial jobs
-- Parallel jobs :contentReference[oaicite:4]{index=4}
-
----
-
-## Main Variables
-
-- **CPUTimeRAW**
-- **ReqMem**
-- **ConsumedEnergyRaw**
-- **ReqCPUS** :contentReference[oaicite:5]{index=5}
-
----
-
-## Required R Packages
-
-```r
-VineCopula
-copula
-fitdistrplus
-GGally
-ggplot2
-dplyr
-patchwork
-knitr
-scales
-```
-
----
-
-## Running the Analysis
-
-1. Place the SLURM accounting dataset (`sacct.csv`) inside the `Data/` directory (or modify the path in the script).
-2. Open the R Markdown file located in `R Code/`.
-3. Run the complete document.
-
-The script automatically:
-
-- preprocesses the data,
-- fits the copula models,
-- produces summary tables,
-- generates all figures,
-- exports publication-ready PDF graphics. :contentReference[oaicite:6]{index=6} :contentReference[oaicite:7]{index=7}
-
----
-
-## Output
-
-The pipeline generates figures such as:
-
-- Marginal density comparisons
-- Boxplots
-- Empirical dependence heatmaps
-- Vine tree structures
-- Copula contour plots
-- Summary tables for the selected copula families :contentReference[oaicite:8]{index=8} :contentReference[oaicite:9]{index=9} :contentReference[oaicite:10]{index=10} :contentReference[oaicite:11]{index=11}
-
----
+> **Before pushing:** open the CSV once and confirm no other columns slipped in from the raw `sacct` export (e.g. `User`, `JobName`, `WorkDir`). The preprocessing pipeline in the `.Rmd` drops these, but the *source* file you commit should already be the cleaned version, not the raw export.
 
 ## Citation
 
-If you use this repository, please cite:
+If you use this code or data, please cite:
 
-**Dylan Benavides**
+> Benavides, D. (2026). Multivariate Analysis of Resource Interdependencies in HPC Clusters: A Validated R-Vine Copula Approach.
 
-*Multivariate Analysis of Resource Interdependencies in HPC Clusters using R-Vine Copulas.*
+## Acknowledgments
 
----
-
-## License
-
-MIT License
+This research was supported by the Kabré Supercomputer at the National High Technology Center of Costa Rica.
