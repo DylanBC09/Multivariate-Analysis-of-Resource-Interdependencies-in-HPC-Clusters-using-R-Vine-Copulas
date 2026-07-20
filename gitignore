@@ -1,0 +1,31 @@
+# R
+.Rhistory
+.RData
+.Rproj.user/
+*.Rproj
+
+# Knitted output (large; regenerate from the .Rmd rather than committing)
+*.html
+*.nb.html
+
+# LaTeX build artifacts, in case the paper source lives in this repo too
+*.aux
+*.log
+*.out
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+
+# OS / editor junk
+.DS_Store
+Thumbs.db
+.Rproj.user
+
+# Dataset lives on Zenodo (33.7 MB, over GitHub's web-upload limit) --
+# see README.md "Data" section. Never re-commit this by accident.
+data/sacct.csv
+data/*.csv
+
+# Uncomment if you decide NOT to share the intermediate checkpoints
+# (leave commented if you want reviewers to be able to skip the multi-hour rerun)
+# checkpoints/
