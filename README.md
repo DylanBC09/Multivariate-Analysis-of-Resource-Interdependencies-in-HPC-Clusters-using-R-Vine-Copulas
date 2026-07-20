@@ -1,4 +1,4 @@
-# Multivariate Analysis of Resource Interdependencies in HPC Clusters: A Validated R-Vine Copula Approach
+# Multivariate Analysis of Resource Interdependencies in HPC Clusters using R-Vine Copulas
 
 Code and data accompanying the paper *"Multivariate Analysis of Resource Interdependencies in HPC Clusters: A Validated R-Vine Copula Approach"* (Dylan Benavides, National High Technology Center, Costa Rica).
 
@@ -13,7 +13,7 @@ This repository reproduces every table and figure in the paper: descriptive stat
 ├── analysis/
 │   └── copula_analysis.Rmd      # Full analysis pipeline (knit to reproduce all tables/figures)
 ├── data/
-│   └── sacct.csv                # Cleaned SLURM sacct export (see Data below)
+│   └── sacct.csv                # NOT tracked in git -- download from Zenodo, see Data below
 ├── checkpoints/                 # Optional: intermediate .rds results from a full run (see below)
 ├── README.md
 ├── LICENSE
@@ -31,9 +31,17 @@ This repository reproduces every table and figure in the paper: descriptive stat
   ```
 - Tested with VineCopula 2.6.1 and copula 1.1-7 on R 4.5.2 (see full session info printed at the end of the knitted output).
 
+## Data
+
+The dataset (`sacct.csv`, 33.7 MB) is archived on Zenodo rather than stored in this repository:
+
+> Benavides Castillo, D. S. (2026). SLURM Accounting Dataset for "Multivariate Analysis of Resource Interdependencies in HPC Clusters: A Validated R-Vine Copula Approach" [Dataset]. Zenodo. https://doi.org/10.5281/zenodo.21463675
+
+Download it from Zenodo and place it at `data/sacct.csv` before running the analysis. It contains job-level resource-consumption records extracted via SLURM's `sacct` accounting utility from the Kabré supercomputer, covering June 18, 2024 -- July 14, 2026, across three partitions with distinct hardware profiles: Dribe (memory-optimized), Kurá (general-purpose CPU), and Nukwa (GPU-accelerated). Only `ConsumedEnergyRaw`, `CPUTimeRAW`, `ReqMem`, `ReqCPUS` (Table II of the paper), plus `Partition`, `State`, and `Submit` (used only for partition/mode stratification and the temporal-stability check, Section IV-E6) are included; no user-identifying or job-command fields.
+
 ## Reproducing the results
 
-1. Place `sacct.csv` in the same directory as the `.Rmd` (or adjust the path in the first data-loading chunk).
+1. Download `sacct.csv` from the Zenodo record above into `data/sacct.csv` (or adjust the path in the first data-loading chunk).
 2. Knit `analysis/copula_analysis.Rmd` in RStudio, or from the command line:
    ```bash
    Rscript -e 'rmarkdown::render("analysis/copula_analysis.Rmd")'
@@ -42,28 +50,13 @@ This repository reproduces every table and figure in the paper: descriptive stat
 4. Progress and per-stage timing are logged to the console via timestamped checkpoints; each expensive stage also saves its result to `checkpoints/*.rds`, so an interrupted run can be resumed by loading the relevant checkpoint instead of restarting from scratch (see comments at the top of the `.Rmd`).
 5. All tables appear in the knitted output in the order they are reported in Results and Discussion (Section IV). Full session and package version information is printed at the end via `sessioninfo::session_info()`.
 
-## Data
-
-The dataset (`sacct.csv`, 33.7 MB) is archived on Zenodo rather than
-stored in this repository:
-
-> Benavides Castillo, D. S. (2026). SLURM Accounting Dataset for
-> "Multivariate Analysis of Resource Interdependencies in HPC Clusters:
-> A Validated R-Vine Copula Approach" [Dataset]. Zenodo.
-> https://doi.org/10.5281/zenodo.21463675
-
-Download it from Zenodo and place it in `data/sacct.csv` before running
-the analysis. It contains job-level resource-consumption records
-extracted via SLURM's `sacct` utility from the Kabré supercomputer,
-covering June 18, 2024 -- July 14, 2026. Only `ConsumedEnergyRaw`,
-`CPUTimeRAW`, `ReqMem`, `ReqCPUS`, `Partition`, `State`, and `Submit`
-are included; no user-identifying or job-command fields.
-
 ## Citation
 
-If you use this code or data, please cite:
+If you use this code, please cite the paper; if you use the data, please cite the dataset:
 
 > Benavides, D. (2026). Multivariate Analysis of Resource Interdependencies in HPC Clusters: A Validated R-Vine Copula Approach.
+
+> Benavides Castillo, D. S. (2026). SLURM Accounting Dataset for "Multivariate Analysis of Resource Interdependencies in HPC Clusters: A Validated R-Vine Copula Approach" [Dataset]. Zenodo. https://doi.org/10.5281/zenodo.21463675
 
 ## Acknowledgments
 
