@@ -1,105 +1,9 @@
 ---
-title: "Multivariate Analysis of Resource Interdependencies in HPC Clusters — Script Final (Modo Publicacion)"
+title: "Multivariate Analysis of Resource Interdependencies in HPC Clusters — Script"
 author: "Dylan Benavides"
 date: "`r Sys.Date()`"
 output: html_document
 ---
-
-<!--
-============================================================================
-LEEME PRIMERO — version de publicacion (~4-8 h)
-============================================================================
-MODO_RAPIDO <- FALSE ya activo (chunk "config-modo-rapido-publicacion").
-Esta es la corrida larga -- ya confirmaste que la version en modo rapido
-compila sin errores, asi que aqui no se toco ninguna logica de analisis,
-solo dos cosas:
-
-  A. El flag: MODO_RAPIDO <- FALSE (N_GRID=300, B_BOOT=300, N_REP_J=30,
-     MAX_OBS=Inf -- sin submuestreo, todos los datos completos).
-  B. CHECKPOINTING (chunk nuevo "checkpoints-helper" + una linea
-     guardar_checkpoint(...) despues de cada etapa cara): una corrida de
-     horas no deberia perderse por una sesion que se cae. Si algo falla a
-     la mitad, recargas el ultimo checkpoint en checkpoints/*.rds en vez
-     de volver a correr todo desde cero -- instrucciones en ese chunk.
-
-RECOMENDACION PRACTICA para no depender de que RStudio siga abierto todas
-esas horas: corre esto desde terminal en vez de con el boton Knit, por
-ejemplo:
-    nohup Rscript -e 'rmarkdown::render("nombre_de_este_archivo.Rmd")' \
-      > log_corrida.txt 2>&1 &
-Esto sigue corriendo aunque cierres la terminal o se caiga la conexion
-SSH; revisas el progreso con `tail -f log_corrida.txt`.
-
-QUE CAMBIO RESPECTO A LA VERSION ANTERIOR (ademas de lo de arriba):
-
-  -1. [CAMBIO METODOLÓGICO MAYOR] Selección robusta de estructura: se
-      reemplazó RVineStructureSelect() (selección automática de Dißmann,
-      que maximiza suma de |tau| en el Árbol 1 pero NO garantiza el BIC
-      final óptimo) por seleccionar_estructura_robusta() en TODO el
-      script -- pipeline principal, validación predictiva, y estabilidad
-      temporal. Para d=3 solo hay 3 estructuras posibles; ahora se
-      ajustan las 3 exhaustivamente en cada caso y se elige la de mejor
-      BIC. Esto se evidenció necesario con datos reales: la estructura
-      que Dißmann elegía para Dribe Paralelo tenía un BIC ~21,000
-      unidades peor que la alternativa centro-CPU. Como consecuencia, es
-      probable que la Tabla V (estructura del R-Vine) resultante de esta
-      corrida difiera de tu versión ya publicada en 1-2 estratos
-      (revisa especialmente Dribe Paralelo y Kurá Paralelo). Esto es
-      intencional y es justamente el objetivo del cambio -- reporta la
-      estructura de mejor ajuste, no la que el heurístico eligió primero.
-      revision-5-comparacion-estructuras ahora incluye una verificación
-      automática que confirma (o alerta si no) que el ganador de cada
-      estrato coincide con lo que el pipeline reportó.
-  0. [FIX] Bootstrap IC 95% (chunk revision-10-bootstrap-ic95): la
-     preselección de familia usaba pobs() SIN jitter, lo que para
-     estratos con muchos empates (Dribe, 91-93%) seleccionaba una
-     familia distinta (BB8) a la reportada en el resto del pipeline
-     (Joe, seleccionada CON jitter) -- el bootstrap validaba
-     incertidumbre del modelo equivocado para esos dos estratos. Ya usa
-     el mismo jitter que el resto del script.
-
-  0. [FIX CRITICO] REVISIÓN 3 — sensibilidad al jitter (chunk revision-3-
-     sensibilidad-jitter): esta era la causa de que la corrida se quedara
-     "congelada" -- corria BiCopSelect(familyset=NA) 180 veces (6
-     magnitudes x 30 repeticiones) sobre Dribe Paralelo COMPLETO sin
-     submuestrear (73,048 filas, el estrato mas degenerado del estudio),
-     sin una sola linea de progreso en pantalla. Ahora usa una submuestra
-     fija de 10,000 filas (defendible: es un chequeo de robustez, no la
-     estimacion principal), imprime progreso por magnitud, tiene su propio
-     checkpoint, y se movio para correr DESPUES del pipeline principal (en
-     vez de antes), para que si vuelve a tardar, ya tengas aseguradas
-     todas las tablas que dependen de todos_los_resultados.
-
-  1. [FIX] Comparacion de 3 estructuras (chunk revision-5-comparacion-
-     estructuras): las matrices D-vine se construian con relleno por
-     columna (default de matrix()) en vez de por fila -> arista invalida
-     M[1,1]==M[3,1] -> las 18 celdas salian NA. Reconstruidas con
-     byrow=TRUE y verificadas contra la estructura confirmada de Dribe
-     Serial.
-  2. [FIX cosmetico] Tabla de sensibilidad al jitter (chunk revision-3-
-     sensibilidad-jitter): las magnitudes 1e-10/1e-9/1e-8 se imprimian las
-     tres como "0e+00" por falta de decimales en kable(); ahora se formatea
-     la columna Magnitud en notacion cientifica explicita.
-  3. [BONUS] se=TRUE agregado a BiCopSelect() en el pipeline principal
-     (chunk pipeline-principal-rvine), para que Tau_SE ya no salga NA en
-     la Tabla 1.
-  4. [BONUS] Los codigos de familia crudos en la tabla de estabilidad
-     temporal (chunk revision-9b-estabilidad-temporal) ahora se decodifican
-     con BiCopName() en vez de imprimirse como enteros.
-  5. [REMOVIDO] Las tablas de bondad de ajuste bivariada (4a) y GoF global
-     del vine (4b) seguian devolviendo NA en los 6 estratos incluso despues
-     de corregir el llamado (par/par2 explicitos, method="ECP2") -- el
-     fallo ocurre dentro del propio tryCatch y no se diagnostico mas a
-     fondo. Se removieron en vez de seguir depurando a ciegas, porque la
-     adecuacion del modelo ya esta sustentada por otras 4 vias que si
-     funcionan: dominancia de AIC/BIC sobre Gaussiana/t-Student
-     (revision-2), bootstrap IC 95% (revision-10), la tabla completa de
-     tau/lambda (revision-6), y la prueba de independencia condicional
-     (revision-8) -- que ademas se autovalida contra la Tabla V publicada.
-     Quedan notas en el lugar exacto de cada tabla removida por si mas
-     adelante quieres retomarlas con otra version de VineCopula.
-============================================================================
--->
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
@@ -201,10 +105,6 @@ data.nukwa <- subset(data.nukwa, State == "COMPLETED")
 data.kura  <- subset(data.kura,  State == "COMPLETED")
 data.dribe <- subset(data.dribe, State == "COMPLETED")
 
-# ============================================================
-# REVISIÓN 9a — Conservar Submit como columna de fecha (POSIXct)
-# antes de eliminar la columna original Submit.
-# ============================================================
 data.nukwa <- data.nukwa %>%
   mutate(Submit_dt = as.POSIXct(Submit, format = "%Y-%m-%dT%H:%M:%S")) %>%
   dplyr::select(-Partition, -ReqNodes, -ElapsedRaw, -ResvCPURAW, -Submit,
@@ -500,17 +400,11 @@ comparar_particiones_marginales_v2 <- function(data_dribe, data_kura, data_nukwa
 analisis_marginales_v2 <- comparar_particiones_marginales_v2(data.dribe, data.kura, data.nukwa)
 ```
 
-```{r config-modo-rapido-publicacion}
-# ============================================================
-# PARÁMETRO GLOBAL — cambiar a FALSE solo para la corrida final
-# TRUE  -> compilación rápida (~10-20 min, para verificar que todo corra)
-# FALSE -> parámetros de publicación (~4-8 h según hardware)
-# ============================================================
-MODO_RAPIDO <- FALSE  # <-- MODO PUBLICACION: corrida final (~4-8 h segun hardware)
-                       #     Ya verificaste que compila sin errores en modo rapido.
+```{r config-modo-rapido}
+MODO_RAPIDO <- FALSE
 
 N_GRID  <- if (MODO_RAPIDO) 30   else 300   # integración numérica en validación
-B_GOF   <- if (MODO_RAPIDO) 10   else 100   # bootstrap en RVineGofTest (ya no se usa, ver nota mas abajo)
+B_GOF   <- if (MODO_RAPIDO) 10   else 100   # bootstrap en RVineGofTest 
 B_BOOT  <- if (MODO_RAPIDO) 30   else 300   # bootstrap IC 95%
 N_REP_J <- if (MODO_RAPIDO) 3    else 30    # repeticiones sensibilidad jitter
 MAX_OBS <- if (MODO_RAPIDO) 3000 else Inf   # cap de filas para análisis pesados
@@ -523,13 +417,7 @@ else
 
 ```{r checkpoints-helper}
 # ============================================================
-# CHECKPOINTING + CRONOMETRAJE — una corrida de horas no deberia perderse
-# por un RStudio que se cuelga, una laptop que se suspende, o una sesion
-# SSH que se cae. Cada etapa cara se guarda a disco apenas termina; si
-# algo falla a la mitad, recargas el checkpoint mas reciente en vez de
-# volver a correr desde cero. No cambia ningun resultado, solo los
-# respalda -- y de paso registra CUANTO tarda cada etapa realmente, en
-# vez de depender de una estimacion especulativa.
+# CHECKPOINTING + CRONOMETRAJE
 # ============================================================
 dir.create("checkpoints", showWarnings = FALSE)
 
@@ -548,11 +436,6 @@ guardar_checkpoint <- function(obj, nombre) {
   .tiempo_ultimo_checkpoint <<- ahora
 }
 
-# Para retomar sin re-ejecutar todo desde cero en una sesion nueva, por ejemplo:
-#   todos_los_resultados <- readRDS("checkpoints/todos_los_resultados.rds")
-# y luego saltar directo al chunk que necesites re-correr.
-# Para ver el tiempo real de cada etapa despues (o durante, con tail -f):
-#   grep "Checkpoint guardado" log_corrida.txt
 ```
 
 ```{r funciones-auxiliares-globales}
@@ -680,9 +563,7 @@ combinaciones <- list(
 cat("Pipeline completado:", length(todos_los_resultados), "estratos ajustados.\n")
 
 # CHECKPOINT critico: todas las tablas restantes dependen de este objeto.
-# Si algo falla mas adelante, recargalo con:
-#   todos_los_resultados <- readRDS("checkpoints/todos_los_resultados.rds")
-# y saltas directo al chunk que necesites, sin repetir este ajuste.
+
 guardar_checkpoint(todos_los_resultados, "todos_los_resultados")
 guardar_checkpoint(combinaciones, "combinaciones")
 ```
@@ -691,21 +572,7 @@ guardar_checkpoint(combinaciones, "combinaciones")
 # ============================================================
 # REVISIÓN 3 — Sensibilidad del jitter
 # ============================================================
-# FIX de rendimiento y de orden: esta funcion corria BiCopSelect(familyset
-# = NA) -- busqueda exhaustiva sobre ~40 familias via MLE -- 180 veces
-# (6 magnitudes x 30 repeticiones, porque N_REP_J=30 en modo publicacion)
-# sobre Dribe Paralelo COMPLETO sin submuestrear (73,048 filas), que
-# ademas es el estrato mas degenerado del estudio (CPU con IQR=0). Eso es
-# lo que la tenia "congelada" por horas: 180 ajustes exhaustivos sobre
-# datos casi discretos, sin una sola linea de progreso en pantalla.
-# Es un chequeo de ROBUSTEZ, no la estimacion principal del paper, asi que
-# se fija una submuestra representativa UNA sola vez (semilla fija) y se
-# le aplican los 180 jitters distintos -- aisla la variabilidad que
-# interesa (la del jitter) sin mezclarla con variabilidad de muestreo.
-# Ademas se movio de ANTES a DESPUES del pipeline principal + su
-# checkpoint: si esta vuelve a tardar, ya tienes aseguradas todas las
-# tablas que dependen de todos_los_resultados en vez de esperar a esta
-# primero.
+
 sensibilidad_jitter <- function(datos, nombre_particion, grupo_objetivo,
                                 magnitudes     = c(1e-10, 1e-9, 1e-8, 1e-6, 1e-4, 1e-2),
                                 n_repeticiones = 30, semilla_base = 1,
@@ -738,7 +605,7 @@ sensibilidad_jitter <- function(datos, nombre_particion, grupo_objetivo,
         k <- k + 1
       }
     }
-    # Progreso visible -- antes esto era una caja negra de 180 iteraciones.
+    
     cat(">>> jitter magnitud", formatC(mag, format = "e", digits = 0), "completada (",
         which(magnitudes == mag), "/", length(magnitudes), ")\n")
   }
@@ -752,9 +619,6 @@ resumen_sensibilidad <- sens_dribe_par %>%
   group_by(Magnitud, Familia) %>%
   summarise(N_veces = n(), Tau_medio = mean(Tau), Tau_sd = sd(Tau), .groups = "drop")
 
-# FIX cosmetico: formatear Magnitud en notacion cientifica explicita para que
-# 1e-10/1e-9/1e-8 no se impriman las tres como "0e+00" por falta de decimales
-# en el redondeo por defecto de kable().
 resumen_sensibilidad_print <- resumen_sensibilidad %>%
   mutate(Magnitud = formatC(Magnitud, format = "e", digits = 0))
 
@@ -869,17 +733,6 @@ print(kable(tabla_biv_final,
             caption = "Tabla 1: Dependencia Energética Bivariada (CPU-Energía)"))
 ```
 
-<!--
-REVISIÓN 4a — Bondad de ajuste bivariada: REMOVIDA.
-BiCopGofTest (tanto "white" como "kendall") devolvió NA en los 6 estratos
-incluso pasando par/par2 explícitos; el fallo persiste dentro del propio
-tryCatch (causa exacta no diagnosticada sin ver el error crudo). Se decidió
-no perseguirlo más porque la adecuación del modelo ya está sustentada por
-otras 4 vías independientes que sí funcionan: dominancia de AIC/BIC sobre
-Gaussiana/t-Student (revision-2), bootstrap IC 95% (revision-10), la tabla
-completa de tau/lambda (revision-6), y la prueba de independencia
-condicional (revision-8), que se autovalida contra la Tabla V publicada.
--->
 
 ```{r revision-7-impacto-empates}
 # REVISIÓN 7 — Impacto de empates
@@ -913,13 +766,7 @@ bootstrap_bicop <- function(datos, nombre_particion, grupo_objetivo, B=300, semi
   datos$GrupoCPU <- ifelse(datos$ReqCPUS == 1, "Serial", "Paralelo")
   sub <- subset(datos, GrupoCPU == grupo_objetivo &
                   ConsumedEnergyRaw > 0 & CPUTimeRAW > 0 & ReqMem > 0)
-  # FIX: la version anterior seleccionaba familia SIN jitter, lo que para
-  # estratos con muchos empates (p.ej. Dribe, 91-93% de CPU time repetido)
-  # elegia una familia distinta (BB8) a la usada en el resto del pipeline
-  # (Joe, seleccionada CON jitter, ver Tabla 1) -- el bootstrap terminaba
-  # reportando incertidumbre de un modelo que no era el que se publica.
-  # Se agrega el mismo jitter que usa el resto del script para que la
-  # familia preseleccionada aqui sea siempre consistente con Tabla 1.
+  
   u0 <- pobs(cbind(sub$CPUTimeRAW + runif(nrow(sub), -1e-8, 1e-8),
                    sub$ConsumedEnergyRaw + runif(nrow(sub), -1e-8, 1e-8)))
   fam0 <- BiCopSelect(u0[,1], u0[,2], familyset=NA, selectioncrit="BIC")$family
@@ -989,26 +836,11 @@ print(kable(tabla_vine_final,
             align = "lllccccc"))
 ```
 
-<!--
-REVISIÓN 4b — GoF global del R-Vine: REMOVIDA.
-RVineGofTest con method="ECP2" seguía devolviendo NA en los 6 estratos
-(dentro del tryCatch); no se depuró más allá por la misma razón que 4a.
-B_GOF queda definido en el chunk de configuración pero ya no se usa en
-ningún otro lado del script -- es inofensivo dejarlo si más adelante
-quieres retomar esta prueba con otra versión de VineCopula.
--->
-
 ```{r revision-5-comparacion-estructuras}
 # ============================================================
 # REVISIÓN 5 — Comparación de las 3 estructuras R-Vine posibles
 # ============================================================
-# Esta tabla ahora es sobre todo una VERIFICACIÓN DE CONSISTENCIA: desde
-# que seleccionar_estructura_robusta() (ver funciones-auxiliares-globales)
-# reemplazó a RVineStructureSelect() en el pipeline principal, el modelo
-# en todos_los_resultados YA ES el ganador de esta misma comparación. La
-# columna Ganadora_Pipeline debe dar TRUE exactamente en la fila de BIC
-# mínimo de cada estrato -- si no es así, algo quedó inconsistente entre
-# esta tabla y el pipeline y hay que revisarlo antes de reportar nada.
+
 comparar_estructuras <- function(nombre, item) {
   u <- item$data
   ganadora_pipeline <- item$vine$estructura_ganadora %||% NA_character_
@@ -1034,9 +866,6 @@ tabla_estructuras <- do.call(rbind, lapply(names(todos_los_resultados), function
 print(kable(tabla_estructuras,
             caption = "Tabla: Comparación 3 estructuras R-Vine (d=3) por logLik, AIC y BIC"))
 
-# Verificación automática: aborta con mensaje claro si alguna fila
-# ganadora por BIC no coincide con lo que el pipeline reporta como
-# estructura_ganadora -- mejor detectarlo aqui que en el paper.
 chequeo <- do.call(rbind, lapply(split(tabla_estructuras, tabla_estructuras$Particion_Grupo), function(df) {
   data.frame(Particion_Grupo = df$Particion_Grupo[1],
              Minimo_BIC_es_ganadora = isTRUE(df$Ganadora_Pipeline[which.min(df$BIC)]))
@@ -1249,9 +1078,6 @@ analizar_por_periodo <- function(datos, nombre_particion, grupo_objetivo) {
   )
 }
 
-# Ejecutar para todas las combinaciones, mostrar resúmenes de estabilidad,
-# y acumular en una lista para poder guardar un checkpoint al final (antes
-# se perdian estos resultados apenas terminaba el loop, solo quedaban impresos).
 resultados_temporales <- list()
 
 for (comb in combinaciones) {
@@ -1288,9 +1114,5 @@ print(info_entorno)
 
 ```{r export-session-info}
 writeLines(capture.output(print(info_entorno)), "session_info_suplementario.txt")
-
-# Recomendado para fijar versiones exactas de paquetes:
-# renv::init()      # una sola vez al inicio del proyecto
-# renv::snapshot()  # cada vez que se agregue/actualice un paquete
 ```
 
